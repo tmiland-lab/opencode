@@ -376,6 +376,8 @@ The `small_model` option configures a separate model for lightweight tasks like 
 
 The `fallback` option configures a model (in the format of `provider/model`, eg `"fallback": "ollama/qwen3"`) that the session automatically switches to when the primary model fails with a retryable transport error — for example when your connection drops mid-session. The session keeps working locally instead of stalling, and the switch is announced in the conversation.
 
+The `image_budget` option caps how many images are sent per model request (default 40). Oldest images beyond the budget are replaced with a text placeholder while the newest are kept, so long sessions with many screenshots cannot die on provider image-per-request limits.
+
 Provider options can include `timeout`, `headerTimeout`, `chunkTimeout`, and `setCacheKey`:
 
 ```json title="opencode.json"

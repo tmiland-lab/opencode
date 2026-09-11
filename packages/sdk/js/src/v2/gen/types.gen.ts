@@ -1938,6 +1938,10 @@ export type Config = {
    * Fallback model in the format of provider/model, eg ollama/qwen3. Automatically used to continue the session when the primary model fails with a retryable transport error.
    */
   fallback?: string
+  /**
+   * Maximum images sent per model request (default 40). Oldest images beyond the budget are replaced with a text placeholder, newest kept — so long sessions cannot die on provider image-per-request caps.
+   */
+  image_budget?: number
   default_agent?: string
   subagent_depth?: number
   username?: string

@@ -81,6 +81,10 @@ export const Info = Schema.Struct({
     description:
       "Fallback model in the format of provider/model, eg ollama/qwen3. Automatically used to continue the session when the primary model fails with a retryable transport error.",
   }),
+  image_budget: Schema.optional(PositiveInt).annotate({
+    description:
+      "Maximum images sent per model request (default 40). Oldest images beyond the budget are replaced with a text placeholder, newest kept — so long sessions cannot die on provider image-per-request caps.",
+  }),
   default_agent: Schema.optional(Schema.String).annotate({
     description:
       "Default agent to use when none is specified. Must be a primary agent. Falls back to 'build' if not set or if the specified agent is invalid.",

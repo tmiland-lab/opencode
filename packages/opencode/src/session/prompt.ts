@@ -1269,7 +1269,9 @@ const layer = Layer.effect(
               sys.environment(model),
               instruction.system().pipe(Effect.orDie),
               sys.mcp(agent, session.permission),
-              MessageV2.toModelMessagesEffect(msgs, model),
+              MessageV2.toModelMessagesEffect(msgs, model, {
+                imageBudget: (yield* config.get()).image_budget,
+              }),
             ])
             const system = [
               ...env,

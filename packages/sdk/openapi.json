@@ -21286,6 +21286,10 @@
           "fallback": {
             "type": "string"
           },
+          "image_budget": {
+            "type": "integer",
+            "exclusiveMinimum": 0
+          },
           "default_agent": {
             "type": "string"
           },
