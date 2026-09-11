@@ -2514,7 +2514,7 @@ it.instance("loop continues on fallback model after transport retries exhaust", 
     const result = yield* prompt.loop({ sessionID: chat.id })
     expect(result.info.role).toBe("assistant")
     if (result.info.role === "assistant") {
-      expect(result.info.providerID).toBe("backup")
+      expect(result.info.providerID).toBe(ProviderV2.ID.make("backup"))
     }
     const texts = result.parts.filter((p) => p.type === "text")
     expect(texts.some((p) => p.type === "text" && p.text.includes("hello from backup"))).toBe(true)
