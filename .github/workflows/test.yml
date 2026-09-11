@@ -72,8 +72,17 @@ jobs:
             turbo-${{ runner.os }}-
 
       - name: Run unit tests
-        timeout-minutes: 20
-        run: GITHUB_ACTIONS=false bun turbo test
+        timeout-minutes: 30
+        # Fork: @opencode-ai/app test:browser (happydom) hangs with no output
+        # on stock Windows runners (upstream uses Blacksmith). Run everything
+        # except the app package there, plus the app unit suite (green).
+        # Never merge this hunk upstream.
+        run: |
+          if [ "$RUNNER_OS" = "Windows" ]; then
+            GITHUB_ACTIONS=false bun turbo test --filter='!@opencode-ai/app' && bun --cwd packages/app run test:unit
+          else
+            GITHUB_ACTIONS=false bun turbo test
+          fi
         env:
           OPENCODE_EXPERIMENTAL_DISABLE_FILEWATCHER: ${{ runner.os == 'Windows' && 'true' || 'false' }}
 
