@@ -3,7 +3,9 @@ import { ConfigPermissionV1 } from "@opencode-ai/core/v1/config/permission"
 import { InstanceState } from "@/effect/instance-state"
 import { Wildcard } from "@opencode-ai/core/util/wildcard"
 import { Deferred, Effect, Layer, Context } from "effect"
+import fs from "fs"
 import os from "os"
+import path from "path"
 import { PermissionV1 } from "@opencode-ai/core/v1/permission"
 import { EventV2Bridge } from "@/event-v2-bridge"
 
@@ -23,6 +25,60 @@ interface PendingEntry {
 interface State {
   pending: Map<PermissionV1.ID, PendingEntry>
   approved: PermissionV1.Rule[]
+}
+
+// Fork (self-hosting edition): "allow always" approvals persist to disk so
+// they survive restarts and apply across project directories. Upstream keeps
+// them in memory only, which makes "always" silently expire far more often
+// than the label promises.
+const APPROVED_FILE = "permission-approved.json"
+const MAX_APPROVED_RULES = 500
+
+export function approvedFilePath(): string {
+  const xdg = process.env.XDG_DATA_HOME
+  const dir = xdg ? path.join(xdg, "opencode") : path.join(os.homedir(), ".local", "share", "opencode")
+  return path.join(dir, APPROVED_FILE)
+}
+
+function isRule(value: unknown): value is PermissionV1.Rule {
+  if (!value || typeof value !== "object") return false
+  const rule = value as Record<string, unknown>
+  return (
+    typeof rule.permission === "string" &&
+    typeof rule.pattern === "string" &&
+    (rule.action === "allow" || rule.action === "deny" || rule.action === "ask")
+  )
+}
+
+export function dedupeRules(rules: PermissionV1.Rule[]): PermissionV1.Rule[] {
+  const seen = new Set<string>()
+  return rules.filter((rule) => {
+    const key = `${rule.permission}\n${rule.pattern}\n${rule.action}`
+    if (seen.has(key)) return false
+    seen.add(key)
+    return true
+  })
+}
+
+export function loadApproved(): PermissionV1.Rule[] {
+  try {
+    const raw = fs.readFileSync(approvedFilePath(), "utf8")
+    const parsed: unknown = JSON.parse(raw)
+    if (!Array.isArray(parsed)) return []
+    return parsed.filter(isRule)
+  } catch {
+    return []
+  }
+}
+
+export function persistApproved(rules: PermissionV1.Rule[]): void {
+  try {
+    const file = approvedFilePath()
+    fs.mkdirSync(path.dirname(file), { recursive: true })
+    fs.writeFileSync(file, JSON.stringify(dedupeRules(rules).slice(-MAX_APPROVED_RULES), null, 2), { mode: 0o600 })
+  } catch {
+    // best-effort: a lost approval only means asking again
+  }
 }
 
 export function evaluate(permission: string, pattern: string, ...rulesets: PermissionV1.Ruleset[]): PermissionV1.Rule {
@@ -48,7 +104,7 @@ const layer = Layer.effect(
         void ctx
         const state = {
           pending: new Map<PermissionV1.ID, PendingEntry>(),
-          approved: [],
+          approved: loadApproved(),
         }
 
         yield* Effect.addFinalizer(() =>
@@ -149,6 +205,7 @@ const layer = Layer.effect(
           action: "allow",
         })
       }
+      persistApproved(approved)
 
       for (const [id, item] of pending.entries()) {
         if (item.info.sessionID !== existing.info.sessionID) continue
