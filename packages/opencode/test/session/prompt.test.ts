@@ -52,7 +52,7 @@ import { Ripgrep } from "@opencode-ai/core/ripgrep"
 import { Format } from "../../src/format"
 import { TestInstance } from "../fixture/fixture"
 import { awaitWithTimeout, pollWithTimeout, testEffect } from "../lib/effect"
-import { reply, TestLLMServer } from "../lib/llm-server"
+import { reply, TestLLMServer, httpError } from "../lib/llm-server"
 import { RuntimeFlags } from "@/effect/runtime-flags"
 import { ProviderV2 } from "@opencode-ai/core/provider"
 import { ModelV2 } from "@opencode-ai/core/model"
@@ -2467,4 +2467,63 @@ noLLMServer.instance(
       }
     }),
   30_000,
+)
+
+it.instance("loop continues on fallback model after transport retries exhaust", () =>
+  Effect.gen(function* () {
+    const { llm } = yield* useServerConfig((url) => {
+      const base = providerCfg(url)
+      const testModel = base.provider.test.models["test-model"] as Record<string, any>
+      return {
+        ...base,
+        fallback: "backup/backup-model",
+        provider: {
+          ...base.provider,
+          backup: {
+            ...(base.provider.test as Record<string, any>),
+            id: "backup",
+            name: "Backup",
+            models: {
+              "backup-model": { ...testModel, id: "backup-model", name: "Backup Model" },
+            },
+          },
+        },
+      }
+    })
+    const prompt = yield* SessionPrompt.Service
+    const sessions = yield* Session.Service
+    const chat = yield* sessions.create({
+      title: "Pinned",
+      permission: [{ permission: "*", pattern: "*", action: "allow" }],
+    })
+    yield* user(chat.id, "hello")
+    // Primary fails fast with retriable 429s (retry-after-ms keeps the
+    // 5-attempt backoff under a second); fallback answers with text.
+    for (let i = 0; i < 8; i++) {
+      yield* llm.pushMatch(
+        (hit) => (hit.body as any)?.model === "test-model",
+        httpError(
+          429,
+          { error: { message: "rate limit exceeded, slow down", code: 429 } },
+          { "retry-after-ms": "50" },
+        ),
+      )
+    }
+    yield* llm.textMatch((hit) => (hit.body as any)?.model === "backup-model", "hello from backup")
+
+    const result = yield* prompt.loop({ sessionID: chat.id })
+    expect(result.info.role).toBe("assistant")
+    expect(result.info.providerID).toBe("backup")
+    const texts = result.parts.filter((p) => p.type === "text")
+    expect(texts.some((p) => p.type === "text" && p.text.includes("hello from backup"))).toBe(true)
+
+    const hits = yield* llm.hits
+    const primary = hits.filter((h) => (h.body as any)?.model === "test-model")
+    const backup = hits.filter((h) => (h.body as any)?.model === "backup-model")
+    // 1 initial attempt + 5 schedule retries on the primary, then exactly
+    // one continued turn on the fallback.
+    expect(primary.length).toBe(6)
+    expect(backup.length).toBe(1)
+  }),
+  60_000,
 )
