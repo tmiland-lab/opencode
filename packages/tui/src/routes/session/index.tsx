@@ -53,6 +53,7 @@ import { DialogTimeline } from "./dialog-timeline"
 import { DialogForkFromTimeline } from "./dialog-fork-from-timeline"
 import { DialogSessionRename } from "../../component/dialog-session-rename"
 import { Sidebar } from "./sidebar"
+import { isAtBottom } from "./follow"
 import { SubagentFooter } from "./subagent-footer.tsx"
 import { filetype } from "../../util/filetype"
 import parsers from "../../parsers-config"
@@ -324,6 +325,18 @@ export function Session() {
   })
 
   let lastSwitch: string | undefined = undefined
+  // Self-host fork: follow-tail lock. While output streams, the scrollbox
+  // sticks to the bottom — but once the user scrolls up to read, force the
+  // stick off on every update until they return to the bottom edge (or
+  // submit). The renderer tracks manual scrolling itself, but misses some
+  // scroll paths, so this backstop guarantees readable output mid-stream.
+  event.on("message.part.updated", (evt) => {
+    if (evt.properties.part.sessionID !== route.sessionID) return
+    if (!scroll || scroll.isDestroyed) return
+    if (!isAtBottom(scroll.y, scroll.scrollHeight, scroll.height)) {
+      scroll.stickyScroll = false
+    }
+  })
   event.on("message.part.updated", (evt) => {
     const part = evt.properties.part
     if (part.type !== "tool") return
@@ -423,6 +436,7 @@ export function Session() {
   function toBottom() {
     setTimeout(() => {
       if (!scroll || scroll.isDestroyed) return
+      scroll.stickyScroll = true
       scroll.scrollTo(scroll.scrollHeight)
     }, 50)
   }
@@ -824,6 +838,7 @@ export function Session() {
       category: "Session",
       hidden: true,
       run: () => {
+        scroll.stickyScroll = true
         scroll.scrollTo(scroll.scrollHeight)
         dialog.clear()
       },
