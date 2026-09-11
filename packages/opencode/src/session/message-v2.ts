@@ -44,6 +44,89 @@ interface FetchDecompressionError extends Error {
 }
 
 export const SYNTHETIC_ATTACHMENT_PROMPT = "Attached media from tool result:"
+
+// Self-host fork: per-request image budget. Providers cap images per request
+// (50 is common); a long session that accumulates screenshots otherwise dies
+// on EVERY request with no recovery. Oldest images are replaced with a text
+// placeholder, newest kept. Overridable via the `image_budget` config option.
+export const DEFAULT_IMAGE_BUDGET = 40
+
+type ImageSlot =
+  | { kind: "file"; msg: number; part: number; filename?: string }
+  | { kind: "tool"; msg: number; part: number; attachment: number; filename?: string }
+
+function collectImageSlots(messages: UIMessage[]): ImageSlot[] {
+  const slots: ImageSlot[] = []
+  messages.forEach((msg, msgIdx) => {
+    msg.parts.forEach((part, partIdx) => {
+      const anyPart = part as Record<string, any>
+      if (
+        part.type === "file" &&
+        typeof anyPart["mediaType"] === "string" &&
+        (anyPart["mediaType"] as string).startsWith("image/")
+      ) {
+        slots.push({ kind: "file", msg: msgIdx, part: partIdx, filename: anyPart["filename"] })
+        return
+      }
+      if (
+        typeof part.type === "string" &&
+        part.type.startsWith("tool-") &&
+        anyPart["output"] &&
+        typeof anyPart["output"] === "object" &&
+        Array.isArray(anyPart["output"].attachments)
+      ) {
+        ;(anyPart["output"].attachments as Array<any>).forEach((attachment, attachmentIdx) => {
+          if (
+            attachment &&
+            typeof attachment.mime === "string" &&
+            (attachment.mime as string).startsWith("image/")
+          ) {
+            slots.push({
+              kind: "tool",
+              msg: msgIdx,
+              part: partIdx,
+              attachment: attachmentIdx,
+              filename: attachment.filename,
+            })
+          }
+        })
+      }
+    })
+  })
+  return slots
+}
+
+export function applyImageBudget(messages: UIMessage[], budget: number): UIMessage[] {
+  const slots = collectImageSlots(messages)
+  const drop = slots.length - budget
+  if (drop <= 0) return messages
+  const toolDrops = new Map<string, number[]>()
+  slots.slice(0, drop).forEach((slot) => {
+    if (slot.kind === "file") {
+      messages[slot.msg].parts[slot.part] = {
+        type: "text",
+        text: `[Image omitted: ${slot.filename ?? "screenshot"} (over per-request image budget of ${budget}, newest images kept)]`,
+      } as (typeof messages)[number]["parts"][number]
+      return
+    }
+    const key = `${slot.msg}:${slot.part}`
+    const list = toolDrops.get(key) ?? []
+    list.push(slot.attachment)
+    toolDrops.set(key, list)
+  })
+  toolDrops.forEach((indexes, key) => {
+    const [msgIdx, partIdx] = key.split(":").map(Number)
+    const output = (messages[msgIdx].parts[partIdx] as Record<string, any>)["output"] as {
+      text: string
+      attachments: Array<any>
+    }
+    output.attachments = output.attachments.filter((_, i) => !indexes.includes(i))
+    if (output.attachments.length === 0) {
+      ;(messages[msgIdx].parts[partIdx] as Record<string, any>)["output"] = output.text
+    }
+  })
+  return messages
+}
 export { isMedia }
 
 function truncateToolOutput(text: string, maxChars?: number) {
@@ -131,7 +214,7 @@ function providerMeta(metadata: Record<string, any> | undefined) {
 export const toModelMessagesEffect = Effect.fnUntraced(function* (
   input: WithParts[],
   model: Provider.Model,
-  options?: { stripMedia?: boolean; toolOutputMaxChars?: number },
+  options?: { stripMedia?: boolean; toolOutputMaxChars?: number; imageBudget?: number },
 ) {
   const result: UIMessage[] = []
   const toolNames = new Set<string>()
@@ -402,6 +485,8 @@ export const toModelMessagesEffect = Effect.fnUntraced(function* (
   }
 
   const tools = Object.fromEntries(Array.from(toolNames).map((toolName) => [toolName, { toModelOutput }]))
+
+  applyImageBudget(result, options?.imageBudget ?? DEFAULT_IMAGE_BUDGET)
 
   return yield* Effect.promise(() =>
     convertToModelMessages(

@@ -374,6 +374,8 @@ You can configure the providers and models you want to use in your OpenCode conf
 
 The `small_model` option configures a separate model for lightweight tasks like title generation. By default, OpenCode tries to use a cheaper model if one is available from your provider, otherwise it falls back to your main model.
 
+The `image_budget` option caps how many images are sent per model request (default 40). Oldest images beyond the budget are replaced with a text placeholder while the newest are kept, so long sessions with many screenshots cannot die on provider image-per-request limits.
+
 Provider options can include `timeout`, `headerTimeout`, `chunkTimeout`, and `setCacheKey`:
 
 ```json title="opencode.json"
