@@ -374,6 +374,8 @@ You can configure the providers and models you want to use in your OpenCode conf
 
 The `small_model` option configures a separate model for lightweight tasks like title generation. By default, OpenCode tries to use a cheaper model if one is available from your provider, otherwise it falls back to your main model.
 
+The `fallback` option configures a model (in the format of `provider/model`, eg `"fallback": "ollama/qwen3"`) that the session automatically switches to when the primary model fails with a retryable transport error — for example when your connection drops mid-session. The session keeps working locally instead of stalling, and the switch is announced in the conversation.
+
 Provider options can include `timeout`, `headerTimeout`, `chunkTimeout`, and `setCacheKey`:
 
 ```json title="opencode.json"

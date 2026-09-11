@@ -31,6 +31,7 @@ import { ConfigMarkdown } from "@/config/markdown"
 import { SessionSummary } from "./summary"
 import { NamedError } from "@opencode-ai/core/util/error"
 import { SessionProcessor } from "./processor"
+import { SessionFallback } from "./fallback"
 import { Tool } from "@/tool/tool"
 import { Permission } from "@/permission"
 import { SessionStatus } from "./status"
@@ -1083,6 +1084,11 @@ const layer = Layer.effect(
         const ctx = yield* InstanceState.context
         let structured: unknown
         let step = 0
+        // Self-host fallback: once the primary model fails with a retryable
+        // transport error (retries already exhausted by then), continue the
+        // loop on the configured fallback model instead of stopping.
+        let fallback: SessionFallback.Ref | undefined
+        let fellBack = false
         const session = yield* sessions.get(sessionID).pipe(Effect.orDie)
 
         while (true) {
@@ -1138,7 +1144,11 @@ const layer = Layer.effect(
               history: msgs,
             }).pipe(Effect.ignore, Effect.forkIn(scope))
 
-          const model = yield* getModel(lastUser.model.providerID, lastUser.model.modelID, sessionID)
+          const model = yield* getModel(
+            fallback?.providerID ?? lastUser.model.providerID,
+            fallback?.modelID ?? lastUser.model.modelID,
+            sessionID,
+          )
           const task = tasks.pop()
 
           if (task?.type === "subtask") {
@@ -1316,7 +1326,29 @@ const layer = Layer.effect(
               }
             }
 
-            if (result === "stop") return "break" as const
+            if (result === "stop") {
+              if (handle.message.error && !fellBack) {
+                const ref = SessionFallback.shouldFallback({
+                  error: handle.message.error,
+                  providerID: model.providerID,
+                  modelID: model.id,
+                  fallback: (yield* config.get()).fallback,
+                  fellBack,
+                })
+                if (ref) {
+                  fellBack = true
+                  fallback = ref
+                  yield* events.publish(Session.Event.Error, {
+                    sessionID,
+                    error: new NamedError.Unknown({
+                      message: `Primary model ${model.providerID}/${model.id} failed with a retryable error. Continuing on fallback ${ref.providerID}/${ref.modelID}.`,
+                    }).toObject(),
+                  })
+                  return "continue" as const
+                }
+              }
+              return "break" as const
+            }
             if (result === "compact") {
               yield* compaction.create({
                 sessionID,

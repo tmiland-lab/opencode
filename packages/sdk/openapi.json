@@ -21283,6 +21283,9 @@
           "small_model": {
             "type": "string"
           },
+          "fallback": {
+            "type": "string"
+          },
           "default_agent": {
             "type": "string"
           },

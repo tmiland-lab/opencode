@@ -1254,6 +1254,10 @@ export type Config = {
    */
   small_model?: string
   /**
+   * Fallback model in the format of provider/model, eg ollama/qwen3. Automatically used to continue the session when the primary model fails with a retryable transport error.
+   */
+  fallback?: string
+  /**
    * Custom username to display in conversations instead of system username
    */
   username?: string
