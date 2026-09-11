@@ -3,7 +3,7 @@ import fs from "node:fs"
 import os from "node:os"
 import path from "node:path"
 import type { PermissionV1 } from "@opencode-ai/core/v1/permission"
-import { approvedFilePath, dedupeRules, loadApproved, persistApproved } from "../../src/permission/index"
+import { approvedFilePath, dedupeRules, evaluate, loadApproved, persistApproved } from "../../src/permission/index"
 
 const originalXdg = process.env.XDG_DATA_HOME
 
@@ -42,6 +42,18 @@ test("persist/load roundtrip", () => {
   }
 })
 
+test("loaded rules evaluate to allow without asking", () => {
+  isolate()
+  try {
+    persistApproved([{ permission: "bash", pattern: "npm *", action: "allow" }])
+    // simulates a fresh process: seed from disk, then evaluate like ask() does
+    const seeded = loadApproved()
+    expect(evaluate("bash", "npm test", [], seeded).action).toBe("allow")
+    expect(evaluate("bash", "rm -rf /", [], seeded).action).toBe("ask")
+  } finally {
+    restore()
+  }
+})
 test("corrupt or missing file loads empty", () => {
   isolate()
   try {
