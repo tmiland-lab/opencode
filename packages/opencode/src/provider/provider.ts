@@ -32,7 +32,11 @@ import { ModelStatus } from "./model-status"
 import { RuntimeFlags } from "@/effect/runtime-flags"
 import { ProviderError } from "./error"
 
-const OPENAI_HEADER_TIMEOUT_DEFAULT = 300_000
+// Self-host fork: stall guards fire after 60s instead of upstream's 5 minutes,
+// so a dead stream surfaces (retry -> error -> idle) instead of leaving the
+// session looking busy indefinitely. Overridable per provider, `false` disables.
+export const DEFAULT_CHUNK_TIMEOUT = 60_000
+export const DEFAULT_HEADER_TIMEOUT = 60_000
 
 function wrapSSE(res: Response, ms: number, ctl: AbortController) {
   if (typeof ms !== "number" || ms <= 0) return res
@@ -211,7 +215,7 @@ function custom(dep: CustomDep): Record<string, CustomLoader> {
         async getModel(sdk: any, modelID: string, _options?: Record<string, any>) {
           return sdk.responses(modelID)
         },
-        options: { headerTimeout: OPENAI_HEADER_TIMEOUT_DEFAULT },
+        options: { headerTimeout: DEFAULT_HEADER_TIMEOUT },
       }),
     meta: () =>
       Effect.succeed({
@@ -1796,8 +1800,8 @@ const layer = Layer.effect(
         if (existing) return existing
 
         const customFetch = options["fetch"]
-        const chunkTimeout = options["chunkTimeout"] ?? 300_000
-        const headerTimeout = options["headerTimeout"] ?? 300_000
+        const chunkTimeout = options["chunkTimeout"] ?? DEFAULT_CHUNK_TIMEOUT
+        const headerTimeout = options["headerTimeout"] ?? DEFAULT_HEADER_TIMEOUT
         delete options["chunkTimeout"]
         delete options["headerTimeout"]
 

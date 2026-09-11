@@ -235,7 +235,9 @@ it.live("OpenAI API auth gets default headerTimeout", () =>
           Effect.gen(function* () {
             const provider = yield* Provider.Service
             const openai = yield* provider.getProvider(ProviderV2.ID.openai)
-            expect(openai.options.headerTimeout).toBe(300_000)
+            expect(openai.options.headerTimeout).toBe(Provider.DEFAULT_HEADER_TIMEOUT)
+            expect(Provider.DEFAULT_HEADER_TIMEOUT).toBe(60_000)
+            expect(Provider.DEFAULT_CHUNK_TIMEOUT).toBe(60_000)
           }),
         )
       }),
