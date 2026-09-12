@@ -254,12 +254,15 @@ export function Session() {
 
   // Fork: live "thinking…" indicator so a stream with no visible output yet
   // (thinking silence, stalled free-tier streams) never looks dead. Shows
-  // only while the session is working AND the last assistant message has no
+  // only while a run is in flight AND the last assistant message has no
   // visible parts (no text, no tool calls, no reasoning text); disappears
-  // the moment anything streams in.
+  // the moment anything streams in. Gated on pending() (the same signal
+  // existing UI uses) OR a non-idle session status, so a lost status event
+  // alone can never blank it.
   const thinkingStart = createMemo(() => {
     const status = sync.data.session_status[route.sessionID]
-    if (!status || status.type === "idle") return undefined
+    const inFlight = pending() !== undefined || (status !== undefined && status.type !== "idle")
+    if (!inFlight) return undefined
     const last = lastAssistant()
     if (!last || last.time.completed) return undefined
     const parts = sync.data.part[last.id] ?? []
