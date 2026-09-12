@@ -1610,7 +1610,7 @@ function ThinkingIndicator(props: { start: number }) {
   onCleanup(() => clearInterval(timer))
   return (
     <box paddingLeft={3} marginTop={1}>
-      <text fg={theme.textMuted}>◌ thinking… {Locale.duration(Math.max(0, now() - props.start))}</text>
+      <text fg={theme.warning}>◌ thinking… {Locale.duration(Math.max(0, now() - props.start))}</text>
     </box>
   )
 }
