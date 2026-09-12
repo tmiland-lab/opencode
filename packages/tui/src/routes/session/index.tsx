@@ -24,6 +24,7 @@ import { SplitBorder } from "../../ui/border"
 import { useTuiPaths, useTuiTerminalEnvironment } from "../../context/runtime"
 import { Spinner } from "../../component/spinner"
 import { createSyntaxStyleMemo, generateSubtleSyntax, selectedForeground, useTheme } from "../../context/theme"
+import { Spinner } from "../../component/spinner"
 import { BoxRenderable, ScrollBoxRenderable, addDefaultParsers, TextAttributes, RGBA } from "@opentui/core"
 import { Prompt, type PromptRef } from "../../component/prompt"
 import type {
@@ -1610,7 +1611,9 @@ function ThinkingIndicator(props: { start: number }) {
   onCleanup(() => clearInterval(timer))
   return (
     <box paddingLeft={3} marginTop={1}>
-      <text fg={theme.warning}>◌ thinking… {Locale.duration(Math.max(0, now() - props.start))}</text>
+      <Spinner color={theme.warning}>
+        thinking… {Locale.duration(Math.max(0, now() - props.start))}
+      </Spinner>
     </box>
   )
 }
