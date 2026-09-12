@@ -24,6 +24,7 @@ import { SplitBorder } from "../../ui/border"
 import { useTuiPaths, useTuiTerminalEnvironment } from "../../context/runtime"
 import { Spinner } from "../../component/spinner"
 import { createSyntaxStyleMemo, generateSubtleSyntax, selectedForeground, useTheme } from "../../context/theme"
+import { Spinner } from "../../component/spinner"
 import { BoxRenderable, ScrollBoxRenderable, addDefaultParsers, TextAttributes, RGBA } from "@opentui/core"
 import { Prompt, type PromptRef } from "../../component/prompt"
 import type {
@@ -250,6 +251,31 @@ export function Session() {
 
   const lastAssistant = createMemo(() => {
     return messages().findLast((x) => x.role === "assistant")
+  })
+
+  // Fork: live "thinking…" indicator so a stream with no visible output yet
+  // (thinking silence, stalled free-tier streams) never looks dead. Shows
+  // only while a run is in flight AND the last assistant message has no
+  // visible parts (no text, no tool calls, no reasoning text); disappears
+  // the moment anything streams in. Gated on pending() (the same signal
+  // existing UI uses) OR a non-idle session status, so a lost status event
+  // alone can never blank it.
+  const thinkingStart = createMemo(() => {
+    const status = sync.data.session_status[route.sessionID]
+    const inFlight = pending() !== undefined || (status !== undefined && status.type !== "idle")
+    if (!inFlight) return undefined
+    const last = lastAssistant()
+    if (!last || last.time.completed) return undefined
+    const parts = sync.data.part[last.id] ?? []
+    const visible = parts.some((part) => {
+      if (part.type === "tool") return true
+      if (part.type === "text") return !part.synthetic && !part.ignored && Boolean(part.text.trim())
+      if (part.type === "reasoning") return Boolean(part.text.replace("[REDACTED]", "").trim())
+      return false
+    })
+    if (visible) return undefined
+    const user = messages().find((x) => x.role === "user" && x.id === last.parentID)
+    return (user ?? last).time.created
   })
 
   const dimensions = useTerminalDimensions()
@@ -1292,6 +1318,9 @@ export function Session() {
                     </Switch>
                   )}
                 </For>
+                <Show when={thinkingStart() !== undefined}>
+                  <ThinkingIndicator start={thinkingStart()!} />
+                </Show>
               </scrollbox>
               <box flexShrink={0}>
                 <Show when={permissions().length > 0}>
@@ -1572,6 +1601,20 @@ function AssistantMessage(props: { message: AssistantMessage; parts: Part[]; las
         </Match>
       </Switch>
     </>
+  )
+}
+
+function ThinkingIndicator(props: { start: number }) {
+  const { theme } = useTheme()
+  const [now, setNow] = createSignal(Date.now())
+  const timer = setInterval(() => setNow(Date.now()), 1000)
+  onCleanup(() => clearInterval(timer))
+  return (
+    <box paddingLeft={3} marginTop={1}>
+      <Spinner color={theme.warning}>
+        thinking… {Locale.duration(Math.max(0, now() - props.start))}
+      </Spinner>
+    </box>
   )
 }
 
