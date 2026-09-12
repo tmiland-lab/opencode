@@ -33,11 +33,15 @@ export function DialogModel(props: { providerID?: string }) {
         if (!provider) return []
         const model = provider.models[item.modelID]
         if (!model) return []
+        // Fork: full names (no 61-char cut) + best-at-work tag.
+        const work = bestForWork(provider.id, model.id)
         return [
           {
             key: item,
             value: { providerID: provider.id, modelID: model.id },
             title: model.name ?? item.modelID,
+            truncateTitle: false as const,
+            details: [`Best for ${work.label}`],
             description: provider.name,
             category,
             disabled: provider.id === "opencode" && model.id.includes("-nano"),
@@ -70,20 +74,27 @@ export function DialogModel(props: { providerID?: string }) {
           entries(),
           filter(([_, info]) => info.status !== "deprecated"),
           filter(([_, info]) => (props.providerID ? info.providerID === props.providerID : true)),
-          map(([model, info]) => ({
-            value: { providerID: provider.id, modelID: model },
-            title: info.name ?? model,
-            releaseDate: info.release_date,
-            description: favorites.some((item) => item.providerID === provider.id && item.modelID === model)
-              ? "(Favorite)"
-              : undefined,
-            category: connected() ? provider.name : undefined,
-            disabled: provider.id === "opencode" && model.includes("-nano"),
-            footer: info.cost?.input === 0 && provider.id === "opencode" ? "Free" : undefined,
-            onSelect() {
-              onSelect(provider.id, model)
-            },
-          })),
+          map(([model, info]) => {
+            // Fork: full names (no 61-char cut) + best-at-work tag.
+            const work = bestForWork(provider.id, model)
+            return {
+              value: { providerID: provider.id, modelID: model },
+              title: info.name ?? model,
+              truncateTitle: false as const,
+              details: [`Best for ${work.label}`],
+              workRank: work.rank,
+              releaseDate: info.release_date,
+              description: favorites.some((item) => item.providerID === provider.id && item.modelID === model)
+                ? "(Favorite)"
+                : undefined,
+              category: connected() ? provider.name : undefined,
+              disabled: provider.id === "opencode" && model.includes("-nano"),
+              footer: info.cost?.input === 0 && provider.id === "opencode" ? "Free" : undefined,
+              onSelect() {
+                onSelect(provider.id, model)
+              },
+            }
+          }),
           filter((option) => {
             if (!showSections) return true
             if (
@@ -100,7 +111,19 @@ export function DialogModel(props: { providerID?: string }) {
               return false
             return true
           }),
-          (options) => sortModelOptions(options, props.providerID !== undefined),
+          // Fork: browse mode sorts by best-at-work first (Favorites/Recent
+          // stay pinned above via the section concat below); provider-scoped
+          // mode keeps upstream newest-first.
+          (options) =>
+            props.providerID !== undefined
+              ? sortModelOptions(options, true)
+              : sortBy(
+                  options,
+                  [(option) => option.workRank],
+                  [(option) => option.category ?? ""],
+                  [(option) => option.releaseDate, "desc"],
+                  (option) => option.title,
+                ),
         ),
       ),
     )
@@ -181,6 +204,37 @@ export function DialogModel(props: { providerID?: string }) {
       current={local.model.current()}
     />
   )
+}
+
+// Fork: work-type tags for the model picker, so each model shows what it
+// is best at and the list sorts by job instead of only recency. Rules are
+// substring-based and deliberately coarse; unknown models land in general.
+export function bestForWork(
+  providerID: string,
+  modelID: string,
+): { label: string; rank: number } {
+  const id = `${providerID}/${modelID}`.toLowerCase()
+  const fast = /mini|flash|haiku|lite|light|nano|small|nemo|7b|8b|27b|30b|31b|32b/.test(id)
+  let label: string
+  let rank: number
+  if (/cod|code/.test(id)) {
+    label = "code"
+    rank = 0
+  } else if (/120b|550b|ultra|opus|max|sonnet|gpt-5|pro|475|5\.3|k3|thinking/.test(id)) {
+    label = "smart"
+    rank = 1
+  } else if (/reason|r1|deepseek|qwq|rmodel/.test(id)) {
+    label = "reasoning"
+    rank = 2
+  } else if (fast) {
+    label = "fast everyday"
+    rank = 3
+  } else {
+    label = "general"
+    rank = 4
+  }
+  if (fast && rank !== 3) label += " · fast"
+  return { label, rank }
 }
 
 export function sortModelOptions<T extends { footer?: string; releaseDate: string | number; title: string }>(
