@@ -65,6 +65,11 @@ export type PromptProps = {
   visible?: boolean
   disabled?: boolean
   onSubmit?: () => void
+  // Fork: notifies the parent of every input change (typing, submit-clear,
+  // history/stash restore, external set) so focus-stealing UI like the
+  // permission prompt can stay out of the way while composing. Additive and
+  // optional — upstream behavior unchanged when unset.
+  onInput?: (text: string) => void
   ref?: (ref: PromptRef | undefined) => void
   hint?: JSX.Element
   right?: JSX.Element
@@ -307,6 +312,13 @@ export function Prompt(props: PromptProps) {
       { defer: true },
     ),
   )
+
+  // Fork: single choke point reporting input text outward. The store is the
+  // source of truth for every writer (typing, submit, history/stash,
+  // external set), so parents stay in sync with zero per-site edits.
+  createEffect(() => {
+    props.onInput?.(store.prompt.input)
+  })
 
   // Initialize agent/model/variant from last user message when session changes
   let syncedSessionID: string | undefined

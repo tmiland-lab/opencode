@@ -237,8 +237,17 @@ export function Session() {
     if (session()?.parentID) return []
     return children().flatMap((x) => sync.data.question[x.id] ?? [])
   })
-  const visible = createMemo(() => !session()?.parentID && permissions().length === 0 && questions().length === 0)
-  const disabled = createMemo(() => permissions().length > 0 || questions().length > 0)
+  // Fork: while the user is composing (unsent input text), permission
+  // requests wait as a slim bar instead of replacing the prompt input and
+  // stealing keystrokes. The interactive prompt mounts once input is empty
+  // or submitted. Questions stay immediate (explicit agent asks, rare).
+  const [composing, setComposing] = createSignal("")
+  const deferredPermissions = createMemo(() => (composing().trim() ? permissions() : []))
+  const activePermissions = createMemo(() => (deferredPermissions().length > 0 ? [] : permissions()))
+  const visible = createMemo(
+    () => !session()?.parentID && activePermissions().length === 0 && questions().length === 0,
+  )
+  const disabled = createMemo(() => activePermissions().length > 0 || questions().length > 0)
 
   const pending = createMemo(() => {
     const completed = messages().findLastIndex((message) => message.role === "assistant" && message.time.completed)
@@ -1294,10 +1303,17 @@ export function Session() {
                 </For>
               </scrollbox>
               <box flexShrink={0}>
-                <Show when={permissions().length > 0}>
+                <Show when={deferredPermissions().length > 0}>
+                  <text fg={theme.textMuted}>
+                    {"⏳ "}
+                    {deferredPermissions().length} permission{deferredPermissions().length === 1 ? "" : "s"}{" "}
+                    pending — send or clear input to answer
+                  </text>
+                </Show>
+                <Show when={activePermissions().length > 0}>
                   <PermissionPrompt
-                    request={permissions()[0]}
-                    directory={sync.session.get(permissions()[0].sessionID)?.directory}
+                    request={activePermissions()[0]}
+                    directory={sync.session.get(activePermissions()[0].sessionID)?.directory}
                   />
                 </Show>
                 <Show when={permissions().length === 0 && questions().length > 0}>
@@ -1323,6 +1339,7 @@ export function Session() {
                       visible={visible()}
                       ref={bind}
                       disabled={disabled()}
+                      onInput={(text) => setComposing(text)}
                       onSubmit={() => {
                         toBottom()
                       }}
