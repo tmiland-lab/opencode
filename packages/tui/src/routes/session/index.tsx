@@ -252,6 +252,28 @@ export function Session() {
     return messages().findLast((x) => x.role === "assistant")
   })
 
+  // Fork: live "thinking…" indicator so a stream with no visible output yet
+  // (thinking silence, stalled free-tier streams) never looks dead. Shows
+  // only while the session is working AND the last assistant message has no
+  // visible parts (no text, no tool calls, no reasoning text); disappears
+  // the moment anything streams in.
+  const thinkingStart = createMemo(() => {
+    const status = sync.data.session_status[route.sessionID]
+    if (!status || status.type === "idle") return undefined
+    const last = lastAssistant()
+    if (!last || last.time.completed) return undefined
+    const parts = sync.data.part[last.id] ?? []
+    const visible = parts.some((part) => {
+      if (part.type === "tool") return true
+      if (part.type === "text") return !part.synthetic && !part.ignored && Boolean(part.text.trim())
+      if (part.type === "reasoning") return Boolean(part.text.replace("[REDACTED]", "").trim())
+      return false
+    })
+    if (visible) return undefined
+    const user = messages().find((x) => x.role === "user" && x.id === last.parentID)
+    return (user ?? last).time.created
+  })
+
   const dimensions = useTerminalDimensions()
   const [sidebar, setSidebar] = kv.signal<"auto" | "hide">("sidebar", "auto")
   const [sidebarOpen, setSidebarOpen] = createSignal(false)
@@ -1292,6 +1314,9 @@ export function Session() {
                     </Switch>
                   )}
                 </For>
+                <Show when={thinkingStart() !== undefined}>
+                  <ThinkingIndicator start={thinkingStart()!} />
+                </Show>
               </scrollbox>
               <box flexShrink={0}>
                 <Show when={permissions().length > 0}>
@@ -1572,6 +1597,18 @@ function AssistantMessage(props: { message: AssistantMessage; parts: Part[]; las
         </Match>
       </Switch>
     </>
+  )
+}
+
+function ThinkingIndicator(props: { start: number }) {
+  const { theme } = useTheme()
+  const [now, setNow] = createSignal(Date.now())
+  const timer = setInterval(() => setNow(Date.now()), 1000)
+  onCleanup(() => clearInterval(timer))
+  return (
+    <box paddingLeft={3} marginTop={1}>
+      <text fg={theme.textMuted}>◌ thinking… {Locale.duration(Math.max(0, now() - props.start))}</text>
+    </box>
   )
 }
 
