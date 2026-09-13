@@ -1,0 +1,53 @@
+# FORK-ONLY (tmiland-lab): publish the fork opencode image to GHCR (amd64).
+# Wraps the same glibc linux-x64 build that fork-binary publishes. Never merge upstream.
+name: fork-container
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Image tag (default: fork-<date>)"
+        required: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with:
+          ref: ${{ github.ref_name }}
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: "24"
+
+      - uses: ./.github/actions/setup-bun
+
+      - name: Build linux-x64 binary
+        working-directory: packages/opencode
+        run: bun script/build.ts --single
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3.12.0
+
+      - name: Login to GHCR
+        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3.7.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.repository_owner }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push image (linux/amd64)
+        run: |
+          REGISTRY=ghcr.io/${{ github.repository_owner }}
+          TAG="${{ github.event.inputs.tag }}"
+          if [ -z "$TAG" ]; then TAG="fork-$(date +%Y-%m-%d)"; fi
+          docker buildx build \
+            --platform linux/amd64 \
+            -f packages/opencode/Dockerfile.fork \
+            --tag ${REGISTRY}/opencode:${TAG} \
+            --tag ${REGISTRY}/opencode:latest \
+            --push \
+            .
