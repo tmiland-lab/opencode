@@ -100,7 +100,9 @@ describe("opencode run (non-interactive subprocess)", () => {
         )
         yield* llm.fail("upstream provider exploded mid-stream")
         yield* llm.text("recovered")
-        const result = yield* opencode.run("trigger midstream error", { timeoutMs: 30_000 })
+        // Self-host fork: same stock-runner slowness as the sibling test above;
+        // measured ~30.3s on stock runners vs the upstream 30s bound.
+        const result = yield* opencode.run("trigger midstream error", { timeoutMs: 45_000 })
         expect(result.exitCode).toBe(0)
         expect(result.stdout).toBe("partial response\nrecovered\n")
         expect(result.stderr).not.toContain("upstream provider exploded mid-stream")
