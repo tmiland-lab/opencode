@@ -62,7 +62,7 @@ export function DialogModel(props: { providerID?: string }) {
       "Recent",
     )
 
-    const providerOptions = pipe(
+    const providerOptionsRaw = pipe(
       sync.data.provider,
       sortBy(
         (provider) => provider.id !== "opencode",
@@ -111,22 +111,23 @@ export function DialogModel(props: { providerID?: string }) {
               return false
             return true
           }),
-          // Fork: browse mode sorts by best-at-work first (Favorites/Recent
-          // stay pinned above via the section concat below); provider-scoped
-          // mode keeps upstream newest-first.
-          (options) =>
-            props.providerID !== undefined
-              ? sortModelOptions(options, true)
-              : sortBy(
-                  options,
-                  [(option) => option.workRank],
-                  [(option) => option.category ?? ""],
-                  [(option) => option.releaseDate, "desc"],
-                  (option) => option.title,
-                ),
         ),
       ),
     )
+
+    // Fork: browse mode sorts by best-at-work first (Favorites/Recent stay
+    // pinned above via the section concat below); provider-scoped mode keeps
+    // upstream newest-first.
+    const providerOptions =
+      props.providerID !== undefined
+        ? sortModelOptions(providerOptionsRaw, true)
+        : sortBy(
+            providerOptionsRaw,
+            (option) => option.workRank,
+            (option) => option.category ?? "",
+            [(option) => option.releaseDate, "desc"],
+            (option) => option.title,
+          )
 
     const popularProviders = !connected()
       ? pipe(
