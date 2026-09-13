@@ -1,10 +1,18 @@
 import { PermissionV1 } from "@opencode-ai/core/v1/permission"
-import { test, expect } from "bun:test"
+import { test, expect, beforeEach } from "bun:test"
+import fs from "fs"
 import os from "os"
 import { Cause, Deferred, Effect, Exit, Fiber, Layer } from "effect"
 import { EventV2Bridge } from "../../src/event-v2-bridge"
 import { CrossSpawnSpawner } from "@opencode-ai/core/cross-spawn-spawner"
-import { Permission } from "../../src/permission"
+import { Permission, approvedFilePath } from "../../src/permission"
+
+// Fork: "always" replies persist to disk and seed every new instance, so a
+// single always-reply would otherwise pre-approve every later test in this
+// file (their asks resolve immediately and never show up as pending).
+beforeEach(() => {
+  fs.rmSync(approvedFilePath(), { force: true })
+})
 import { InstanceBootstrap } from "../../src/project/bootstrap"
 import { InstanceStore } from "../../src/project/instance-store"
 import { TestInstance, tmpdirScoped } from "../fixture/fixture"
