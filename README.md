@@ -1,5 +1,5 @@
 <p align="center">
-  <a href="https://opencode.ai">
+  <a href="https://github.com/tmiland-lab/opencode">
     <picture>
       <source srcset="packages/console/app/src/asset/logo-ornate-dark.svg" media="(prefers-color-scheme: dark)">
       <source srcset="packages/console/app/src/asset/logo-ornate-light.svg" media="(prefers-color-scheme: light)">
@@ -7,11 +7,11 @@
     </picture>
   </a>
 </p>
-<p align="center">The open source AI coding agent.</p>
+<p align="center">The open source AI coding agent — <strong>tmiland-lab self-hosting edition</strong>.</p>
 <p align="center">
-  <a href="https://opencode.ai/discord"><img alt="Discord" src="https://img.shields.io/discord/1391832426048651334?style=flat-square&label=discord" /></a>
-  <a href="https://www.npmjs.com/package/opencode-ai"><img alt="npm" src="https://img.shields.io/npm/v/opencode-ai?style=flat-square" /></a>
-  <a href="https://github.com/anomalyco/opencode/actions/workflows/publish.yml"><img alt="Build status" src="https://img.shields.io/github/actions/workflow/status/anomalyco/opencode/publish.yml?style=flat-square&branch=dev" /></a>
+  <a href="https://github.com/tmiland-lab/opencode/releases"><img alt="Releases" src="https://img.shields.io/github/release/tmiland-lab/opencode?style=flat-square" /></a>
+  <a href="https://github.com/tmiland-lab/opencode/actions/workflows/typecheck.yml"><img alt="Typecheck" src="https://img.shields.io/github/actions/workflow/status/tmiland-lab/opencode/typecheck.yml?style=flat-square" /></a>
+  <a href="https://github.com/tmiland-lab/opencode/actions/workflows/test.yml"><img alt="Tests" src="https://img.shields.io/github/actions/workflow/status/tmiland-lab/opencode/test.yml?style=flat-square" /></a>
 </p>
 
 <p align="center">
@@ -39,34 +39,98 @@
   <a href="README.vi.md">Tiếng Việt</a>
 </p>
 
-[![OpenCode Terminal UI](packages/web/src/assets/lander/screenshot.png)](https://opencode.ai)
+[![OpenCode Terminal UI](packages/web/src/assets/lander/screenshot.png)](https://github.com/tmiland-lab/opencode)
 
 ---
 
-### Installation
+> [!IMPORTANT]
+> This is a **community fork** of the [OpenCode](https://github.com/sst/opencode)
+> AI coding agent, maintained by **tmiland-lab**. It tracks upstream `dev` and
+> carries a focused set of UX and reliability fixes for self-hosting workflows.
+> It is **not** affiliated with, or endorsed by, the OpenCode team — see the
+> [Building on OpenCode](#building-on-opencode) note below.
+
+## What's different in this fork
+
+`release/fixes` is a clean build of the latest upstream `dev` plus the following
+self-hosting fixes, each developed and tested in its own branch:
+
+### 📌 Reliability
+
+- **Persistent approvals** (`permission-approved.json`) — allow-always answers
+  survive restarts and directory switches. No more re-prompting the same rule
+  every session, and no more sessions silently dying while waiting for a prompt.
+- **Per-request image budget** (`image_budget`) — screenshots and tool images
+  are capped per model request (default 40). Long screenshot-heavy sessions no
+  longer die on provider image-per-request limits; oldest images degrade to a
+  text placeholder, newest are kept.
+- **Stock-runners CI** — test, typecheck, and e2e run on plain
+  `ubuntu-latest`/`windows-latest` (no Blacksmith dependency), giving reliable
+  public-fork CI on GitHub Actions.
+
+### 🖥️ Terminal UI
+
+- **Live thinking indicator** — a visible `◌ thinking… Ns` line (animated
+  braille spinner, warning-amber) appears while the session is busy with zero
+  visible output, and disappears on the first token. No more blank screen →
+  "is it dead?" → aborting a model that was actually working.
+- **Follow-tail lock** — the TUI stops auto-scrolling once you scroll up, so
+  streamed output stays readable mid-stream. Submit / jump-to-bottom re-engages
+  tail mode.
+- **Model picker upgrades** — full model names (never clipped at 61 chars),
+  `Best for <work>` tags (code / smart / reasoning / fast / general), and
+  work-rank sorting in browse mode while keeping Favorites/Recent pinned.
+- **Message timestamps** — timeline shows the date alongside the time, and
+  bot-assisted GitHub comments are stamped with UTC date+time.
+
+### ⚙️ CI / Tooling
+
+- `fork-binary.yml` — one-click single-platform binary builds
+  (`fork-opencode-linux-x64` artifact) for dogfooding fork branches without a
+  local toolchain.
+- Ripgrep installed in CI, e2e runner fixes, and a Windows
+  test-suite workaround that keeps stock runners green.
+
+## Branch model
+
+This fork keeps a clean, reviewable history:
+
+| Branch               | Contents                                                        |
+| -------------------- | --------------------------------------------------------------- |
+| `dev`                | Upstream `dev` + minimal fork plumbing (stock-runner CI).       |
+| `fix/<name>`         | One branch per fix, based on clean `dev`, containing only it.   |
+| `release/fixes`      | `dev` + all fixes merged — the recommended build branch.        |
+| `contrib/<name>`     | Work intended to be proposed upstream as a PR.                  |
+
+The self-hosting fixes target upstream's *self-hosting* use cases and are kept
+behind the `fix/*` + `release/fixes` branches so upstream PRs can be opened
+from cherry-picked commits without dragging fork-only code along.
+
+## Installation
+
+The fork builds from source. Prefer a prebuilt binary from the
+[releases page](https://github.com/tmiland-lab/opencode/releases)
+(`fork-opencode-linux-x64`) when available; otherwise build from source:
 
 ```bash
-# YOLO
-curl -fsSL https://opencode.ai/install | bash
+# Clone the recommended build branch
+git clone -b release/fixes https://github.com/tmiland-lab/opencode.git
+cd opencode
 
-# Package managers
-npm i -g opencode-ai@latest        # or bun/pnpm/yarn
-scoop install opencode             # Windows
-choco install opencode             # Windows
-brew install anomalyco/tap/opencode # macOS and Linux (recommended, always up to date)
-brew install opencode              # macOS and Linux (official brew formula, updated less)
-sudo pacman -S opencode            # Arch Linux (Stable)
-paru -S opencode-bin               # Arch Linux (Latest from AUR)
-mise use -g opencode               # Any OS
-nix run nixpkgs#opencode           # or github:anomalyco/opencode for latest dev branch
+# Build (requires bun)
+bun install
+bun run build
 ```
 
 > [!TIP]
-> Remove versions older than 0.1.x before installing.
+> Remove versions older than 0.1.x before installing, and never mix the fork
+> binary's data directory with the official install's.
 
 ### Desktop App (BETA)
 
-OpenCode is also available as a desktop application. Download directly from the [releases page](https://github.com/anomalyco/opencode/releases) or [opencode.ai/download](https://opencode.ai/download).
+OpenCode is also available as a desktop application via
+[upstream](https://github.com/anomalyco/opencode/releases) or
+[opencode.ai/download](https://opencode.ai/download).
 
 | Platform              | Download                           |
 | --------------------- | ---------------------------------- |
@@ -75,14 +139,7 @@ OpenCode is also available as a desktop application. Download directly from the 
 | Windows               | `opencode-desktop-windows-x64.exe` |
 | Linux                 | `.deb`, `.rpm`, or `.AppImage`     |
 
-```bash
-# macOS (Homebrew)
-brew install --cask opencode-desktop
-# Windows (Scoop)
-scoop bucket add extras; scoop install extras/opencode-desktop
-```
-
-#### Installation Directory
+### Installation Directory
 
 The install script respects the following priority order for the installation path:
 
@@ -91,13 +148,7 @@ The install script respects the following priority order for the installation pa
 3. `$HOME/bin` - Standard user binary directory (if it exists or can be created)
 4. `$HOME/.opencode/bin` - Default fallback
 
-```bash
-# Examples
-OPENCODE_INSTALL_DIR=/usr/local/bin curl -fsSL https://opencode.ai/install | bash
-XDG_BIN_DIR=$HOME/.local/bin curl -fsSL https://opencode.ai/install | bash
-```
-
-### Agents
+## Agents
 
 OpenCode includes two built-in agents you can switch between with the `Tab` key.
 
@@ -112,13 +163,18 @@ This is used internally and can be invoked using `@general` in messages.
 
 Learn more about [agents](https://opencode.ai/docs/agents).
 
-### Documentation
+## Documentation
 
-For more info on how to configure OpenCode, [**head over to our docs**](https://opencode.ai/docs).
+For more info on how to configure OpenCode, [**head over to the upstream docs**](https://opencode.ai/docs).
 
-### Contributing
+## Contributing
 
-If you're interested in contributing to OpenCode, please read our [contributing docs](./CONTRIBUTING.md) before submitting a pull request.
+Want to contribute to upstream OpenCode? Please read the upstream
+[contributing docs](./CONTRIBUTING.md) before submitting a pull request.
+
+Fork-specific fixes should follow the branch model above: open a `fix/<name>`
+branch from `dev`; single-repo integrations land via `release/fixes`; anything
+intended for upstream goes on `contrib/<name>` for review.
 
 ### Building on OpenCode
 
@@ -126,4 +182,4 @@ If you are working on a project that's related to OpenCode and is using "opencod
 
 ---
 
-**Join our community** [Discord](https://discord.gg/opencode) | [X.com](https://x.com/opencode)
+**This fork** is maintained by **tmiland-lab**. Upstream live at [sst/opencode](https://github.com/sst/opencode). Community [Discord](https://discord.gg/opencode) | [X.com](https://x.com/opencode)
