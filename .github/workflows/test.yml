@@ -76,12 +76,14 @@ jobs:
         # Fork: @opencode-ai/app test:browser (happydom) hangs with no output
         # on stock Windows runners (upstream uses Blacksmith). Run everything
         # except the app package there, plus the app unit suite (green).
+        # Fork: raise bun's per-test timeout (default 5000ms) so git-heavy
+        # tests (ProjectV2.resolve etc.) do not flake on slow stock runners.
         # Never merge this hunk upstream.
         run: |
           if [ "$RUNNER_OS" = "Windows" ]; then
-            GITHUB_ACTIONS=false bun turbo test --filter='!@opencode-ai/app' && bun --cwd packages/app run test:unit
+            GITHUB_ACTIONS=false bun turbo test --filter='!@opencode-ai/app' -- --timeout=15000 && bun --cwd packages/app run test:unit
           else
-            GITHUB_ACTIONS=false bun turbo test
+            GITHUB_ACTIONS=false bun turbo test -- --timeout=15000
           fi
         env:
           OPENCODE_EXPERIMENTAL_DISABLE_FILEWATCHER: ${{ runner.os == 'Windows' && 'true' || 'false' }}
