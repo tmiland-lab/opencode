@@ -7,7 +7,7 @@
     </picture>
   </a>
 </p>
-<p align="center">The open source AI coding agent — <strong>tmiland-lab self-hosting edition</strong>.</p>
+<p align="center">The open source AI coding agent — <strong>tmiland-lab fork</strong>.</p>
 <p align="center">
   <a href="https://github.com/tmiland-lab/opencode/releases"><img alt="Releases" src="https://img.shields.io/github/release/tmiland-lab/opencode?style=flat-square" /></a>
   <a href="https://github.com/tmiland-lab/opencode/actions/workflows/typecheck.yml"><img alt="Typecheck" src="https://img.shields.io/github/actions/workflow/status/tmiland-lab/opencode/typecheck.yml?style=flat-square" /></a>
@@ -46,14 +46,14 @@
 > [!IMPORTANT]
 > This is a **community fork** of the [OpenCode](https://github.com/sst/opencode)
 > AI coding agent, maintained by **tmiland-lab**. It tracks upstream `dev` and
-> carries a focused set of UX and reliability fixes for self-hosting workflows.
-> It is **not** affiliated with, or endorsed by, the OpenCode team — see the
+> carries a focused set of UX and reliability fixes. It is **not** affiliated
+> with, or endorsed by, the OpenCode team — see the
 > [Building on OpenCode](#building-on-opencode) note below.
 
 ## What's different in this fork
 
 `release/fixes` is a clean build of the latest upstream `dev` plus the following
-self-hosting fixes, each developed and tested in its own branch:
+fixes, each developed and tested in its own branch:
 
 ### 📌 Reliability
 
@@ -102,9 +102,8 @@ This fork keeps a clean, reviewable history:
 | `release/fixes`      | `dev` + all fixes merged — the recommended build branch.        |
 | `contrib/<name>`     | Work intended to be proposed upstream as a PR.                  |
 
-The self-hosting fixes target upstream's *self-hosting* use cases and are kept
-behind the `fix/*` + `release/fixes` branches so upstream PRs can be opened
-from cherry-picked commits without dragging fork-only code along.
+The fork fixes live behind the `fix/*` + `release/fixes` branches so upstream PRs
+can be opened from cherry-picked commits without dragging fork-only code along.
 
 ## Installation
 
