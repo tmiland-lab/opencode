@@ -46,7 +46,8 @@ jobs:
           if [ -z "$TAG" ]; then TAG="fork-$(date +%Y-%m-%d)"; fi
           docker buildx build \
             --platform linux/amd64 \
-            -f packages/opencode/Dockerfile.fork \
+            --context packages/opencode \
+            --file packages/opencode/Dockerfile.fork \
             --tag ${REGISTRY}/opencode:${TAG} \
             --tag ${REGISTRY}/opencode:latest \
             --push \
