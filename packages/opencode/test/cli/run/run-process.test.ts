@@ -73,10 +73,14 @@ describe("opencode run (non-interactive subprocess)", () => {
       Effect.gen(function* () {
         const result = yield* opencode.run("say hi", {
           model: "test/nonexistent-model",
-          timeoutMs: 15_000,
+          // Self-host fork: stock GitHub runners spawn the CLI subprocess
+          // slower than upstream's Blacksmith runners (measured ~15.5s for a
+          // clean error exit). 25s still catches the regressed infinite hang
+          // (harness kills at timeout, duration lands on/over the bound).
+          timeoutMs: 25_000,
         })
         expect(result.exitCode).not.toBe(0)
-        expect(result.durationMs).toBeLessThan(15_000)
+        expect(result.durationMs).toBeLessThan(25_000)
       }),
     30_000,
   )
