@@ -1254,11 +1254,11 @@ export type Config = {
    */
   small_model?: string
   /**
-  /**
    * Maximum images sent per model request (default 40). Oldest images beyond the budget are replaced with a text placeholder, newest kept — so long sessions cannot die on provider image-per-request caps.
    */
   image_budget?: number
-
+  /**
+   * Custom username to display in conversations instead of system username
    */
   username?: string
   /**
