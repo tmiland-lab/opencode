@@ -154,7 +154,7 @@ jobs:
         working-directory: packages/app
         run: bunx playwright install chromium
 
-- name: Run app e2e tests
+      - name: Run app e2e tests
         run: bun --cwd packages/app run test:e2e:local -- --retries=3
         env:
           CI: true
