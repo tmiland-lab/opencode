@@ -358,8 +358,9 @@ export function Session() {
   event.on("message.part.updated", (evt) => {
     if (evt.properties.part.sessionID !== route.sessionID) return
     if (!scroll || scroll.isDestroyed) return
-    if (!isAtBottom(scroll.y, scroll.scrollHeight, scroll.height)) {
-      scroll.stickyScroll = false
+    const atBottom = isAtBottom(scroll.scrollTop, scroll.scrollHeight, scroll.height)
+    if (atBottom !== scroll.stickyScroll) {
+      scroll.stickyScroll = atBottom
     }
   })
   event.on("message.part.updated", (evt) => {
