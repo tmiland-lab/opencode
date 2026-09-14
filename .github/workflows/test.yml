@@ -89,6 +89,9 @@ jobs:
           fi
         env:
           OPENCODE_EXPERIMENTAL_DISABLE_FILEWATCHER: ${{ runner.os == 'Windows' && 'true' || 'false' }}
+          # Fork: stock GitHub Windows runners put cwd on D:\ but temp on C:\,
+          # breaking upstream's drive-stripping path tests. Set by fork CI only.
+          FORK_SKIP_WIN_DRIVE_TESTS: ${{ runner.os == 'Windows' && '1' || '0' }}
 
       - name: Check generated client
         if: runner.os == 'Linux'

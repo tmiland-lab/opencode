@@ -106,7 +106,12 @@ describe("tool.assertExternalDirectory", () => {
   )
 
   if (process.platform === "win32") {
-    it.instance(
+    // Fork: stock GitHub Windows runners place cwd on D:\ while os.tmpdir() is
+    // C:\, so the drive-stripped/lowercased alt path re-resolves to the wrong
+    // root. Skipped only when fork CI sets FORK_SKIP_WIN_DRIVE_TESTS=1.
+    // Never merge this skip upstream.
+    const forkDriveTest = process.env.FORK_SKIP_WIN_DRIVE_TESTS === "1" ? it.instance.skip : it.instance
+    forkDriveTest(
       "normalizes Windows path variants to one glob",
       () =>
         Effect.gen(function* () {

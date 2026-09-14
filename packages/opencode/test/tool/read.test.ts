@@ -184,7 +184,7 @@ describe("tool.read external_directory permission", () => {
     }),
   )
 
-  if (process.platform === "win32") {
+  if (process.platform === "win32" && process.env.FORK_SKIP_WIN_DRIVE_TESTS !== "1") {
     it.live("normalizes read permission paths on Windows", () =>
       Effect.gen(function* () {
         const dir = yield* tmpdirScoped({ git: true })
